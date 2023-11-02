@@ -4,10 +4,13 @@
 
 typedef struct AuxStatus
 {
-    unsigned commonContactorState : 1;
+        //check if we need everything, check to see if anything needs to be added, removed. compare it to the new diagram
+        //look for changes so we can better incorporate this data
+        //communication protocal for AuxBMS 
+    unsigned commonContactorState : 1; //: 1 means how many bits it is
     unsigned chargeContactorState : 1;
     unsigned dischargeContactorState : 1;
-    unsigned auxVoltage : 5;
+    unsigned auxVoltage : 5; 
     unsigned highVoltageEnableState : 1;
     unsigned strobeBmsLight : 1;
     unsigned allowCharge : 1; // Tells drivers controls to tell MPPTs and Motor Sculptors not to charge
