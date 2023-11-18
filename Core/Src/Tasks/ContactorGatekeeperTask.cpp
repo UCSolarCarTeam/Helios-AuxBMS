@@ -14,7 +14,9 @@ Contactor common = {
     COMMON_SENSE_Pin,
     COMMON_CURRENT_CHANNEL,
     COMMON_ENABLE_GPIO_Port, 
-    COMMON_ENABLE_Pin
+    COMMON_ENABLE_Pin,
+    COMMON_CLOSED;
+    COMMON_OPENED
 };
 
 Contactor charge = {
@@ -22,7 +24,10 @@ Contactor charge = {
     CHARGE_SENSE_Pin,
     CHARGE_CURRENT_CHANNEL,
     CHARGE_ENABLE_GPIO_Port, 
-    CHARGE_ENABLE_Pin
+    CHARGE_ENABLE_Pin,
+    CHARGE_CLOSED;
+    CHARGE_OPENED
+
 }; 
 
 Contactor discharge = {
@@ -30,7 +35,10 @@ Contactor discharge = {
     DISCHARGE_SENSE_Pin,
     DISCHARGE_CURRENT_CHANNEL,
     DISCHARGE_ENABLE_GPIO_Port, 
-    DISCHARGE_ENABLE_Pin
+    DISCHARGE_ENABLE_Pin,
+    DISCHARGE_CLOSED;
+    DISCHARGE_OPENED
+
 }; 
 
 std::unordered_map<uint8_t, Contactor> contactorMap = {{0, common}, {1, charge}, {2, discharge}};
@@ -42,7 +50,7 @@ std::list<Contactor> isContactorClosed = {};
 //Ask jessie why this is in C++
 
 
-void contactorGatekeeperTask(uint8_t contactorToClose)
+void closeContactor(uint8_t contactorToClose)
 {
 
     // read sense pin
@@ -72,10 +80,9 @@ void contactorGatekeeperTask(uint8_t contactorToClose)
         auxBmsContactorState.contactorInfo = CONTACTOR_ERROR;
         HAL_GPIO_WritePin(contactorInfo.enablePort, contactorInfo.enablePin, GPIO_PIN_RESET);
         osDelay(1000);
-        osEventFlagsSet(contactorControlEventBits, )
-        //                                       ^^^I dont know what to put here for the second parameter cuz in the old code it hard-coded COMMON_CLOSED
+        osEventFlagsSet(contactorControlEventBits, contactorInfo.closed);
     }
-    uint8_t isContactorClosed = auxBmsContactorState.dischargeState == CLOSED || auxBmsContactorState.dischargeState == CLOSING;
+//    uint8_t isContactorClosed = auxBmsContactorState.dischargeState == CLOSED || auxBmsContactorState.dischargeState == CLOSING;
     //list of closed contactors 
     //^global in terms of this task
     //as contactor is closed it will stored into the list
@@ -85,21 +92,36 @@ void contactorGatekeeperTask(uint8_t contactorToClose)
     //to remove the closing thing u need to always update before doing other stuff to see if it is closed
     
     //if isDischargeClosed is true it will go to isCuurentLow(1), otherwise it will go to isCurrentLow(0)
-    uint8_t currentLow = isDischargeClosed ? isCurrentLow(1) : isCurrentLow(0);
-    uint8_t contactorError = !(currentLow && sense);    
+    // uint8_t currentLow = isDischargeClosed ? isCurrentLow(1) : isCurrentLow(0);
+    // uint8_t contactorError = !(currentLow && sense);    
 
 }
 
 
 
-
-void openContactor()
+void openContactor(uint8_t contactorToOpen)
 {
+    Contactor contactorInfo = contactorMap[contactorToOpen];
     //get the values from the hashmap for port and pin
-    HAL_GPIO_WritePin(MPPT_ENABLE_GPIO_Port, MPPT_ENABLE_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(contactorInfo.enablePort, contactorInfo.enablePin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(CHARGE_ENABLE_GPIO_Port, CHARGE_ENABLE_Pin, GPIO_PIN_RESET);
     auxBmsContactorState.chargeState = OPEN;
     osThreadSetPriority (chargeContactorGatekeeperTaskHandle, osPriorityNormal);
 }
 
+void ContactorGatekeeper(uint8_t contactor)
+{
+    Contactor contactorInfo = contactorMap[contactor];
+
+    uint32_t contactorFlags = osEventFlagsWait(contactorControlEventBits, contactorInfo.closed | contactorInfo.opened, osFlagsWaitAny, osWaitForever);
+
+    if (contactorFlags & contactorInfo.opened)
+    {
+        openContactor(contactor);
+    }
+    else if ((contactorFlags & contactorInfo.closed) && !auxBmsContactorState.contactorsDisconnected) // Only close contactor if the contactors have not been disconnected
+    {
+        closeContactor(contactor);
+    }
+}
 

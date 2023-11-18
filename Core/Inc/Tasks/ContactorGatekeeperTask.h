@@ -7,4 +7,6 @@ struct Contactor {
     GPIO_TypeDef currentChannel;
     GPIO_TypeDef enablePort;
     uint16_t enablePin;
+    uint8_t closed;
+    uint8_t opened;
 }
